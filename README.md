@@ -1,7 +1,7 @@
+kube-proxy-iptables
+---
 
-This is a quick-and-dirty implementation of the Kubernetes Proxy using iptables rules.
-
-Setup:
+This is an attempt to replace the user-space proxying of kubernetes with one based on iptables.
 
     iptables -t nat -I PREROUTING  -j tsone-dnat
     iptables -t nat -I OUTPUT      -j tsone-dnat
