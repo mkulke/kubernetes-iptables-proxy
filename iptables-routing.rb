@@ -17,14 +17,14 @@ class Hash
     end
 end
 
+apiserver = ENV["APISERVER"] || "localhost:8080"
+
 def kube_get(ns, *cmd)
-    JSON.load(`./kubectl --namespace=#{ns} -o json get #{cmd.join(" ")}`)
+    JSON.load(`./kubectl -s #{apiserver} --namespace=#{ns} -o json get #{cmd.join(" ")}`)
 end
 
 dnat_rules = [ ]
 snat_rules = [ ]
-
-prefix = 'tsone'
 
 $log.info "Loading cluster state..."
 kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each do |ns|
