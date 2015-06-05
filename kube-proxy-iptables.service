@@ -1,0 +1,28 @@
+[Unit]
+Description=Custom Kubernetes Proxy using iptables
+Documentation=https://github.com/GoogleCloudPlatform/kubernetes
+Requires=docker.service
+After=docker.service
+Requires=iptables-chains.service
+After=iptables-chains.service
+
+[Service]
+TimeoutStartSec=10m
+EnvironmentFile=/etc/environment
+ExecStartPre=-/usr/bin/docker kill kube-proxy-iptables
+ExecStartPre=-/usr/bin/docker rm kube-proxy-iptables
+ExecStartPre=/usr/bin/docker pull quay.io/tsone/kube-proxy-iptables
+ExecStart=/usr/bin/docker run \
+-e PUBLIC_IP=${COREOS_PRIVATE_IPV4} \
+-e APISERVER=%master-ip%:8080 \
+-e ETCD_PEER=%master-ip%:4001 \
+--name kube-proxy-iptables \
+--privileged \
+--net=host \
+quay.io/tsone/kube-proxy-iptables
+ExecStop=/usr/bin/docker stop -t 5 kube-proxy-iptables
+Restart=on-failure
+RestartSec=10
+
+[X-Fleet]
+MachineMetadata=role=minion

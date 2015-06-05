@@ -1,0 +1,23 @@
+[Unit]
+Description=Iptables chains for kubernetes routing
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/sbin/iptables -t nat -N tsone-dnat
+ExecStart=/usr/sbin/iptables -t nat -N tsone-snat
+ExecStart=/usr/sbin/iptables -t nat -I PREROUTING -j tsone-dnat
+ExecStart=/usr/sbin/iptables -t nat -I OUTPUT -j tsone-dnat
+ExecStart=/usr/sbin/iptables -t nat -I POSTROUTING -j tsone-snat
+ExecStop=/usr/sbin/iptables -t nat -F tsone-snat
+ExecStop=/usr/sbin/iptables -t nat -F tsone-dnat
+ExecStop=/usr/sbin/iptables -t nat -D PREROUTING -j tsone-dnat
+ExecStop=/usr/sbin/iptables -t nat -D OUTPUT -j tsone-dnat
+ExecStop=/usr/sbin/iptables -t nat -D POSTROUTING -j tsone-snat
+ExecStop=/usr/sbin/iptables -t nat -X tsone-snat
+ExecStop=/usr/sbin/iptables -t nat -X tsone-dnat
+RemainAfterExit=true
+Type=oneshot
+
+[X-Fleet]
+MachineMetadata=role=minion
