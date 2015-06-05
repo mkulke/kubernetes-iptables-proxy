@@ -3,7 +3,9 @@
 
 require 'logger'
 $log = Logger.new($stdout)
-$log.level = Logger::INFO
+$log.level = Logger::DEBUG
+$apiserver = ENV["APISERVER"] || "localhost:8080"
+$public_ip = ENV["PUBLIC_IP"]
 
 $log.info "Initializing..."
 
@@ -17,10 +19,8 @@ class Hash
     end
 end
 
-apiserver = ENV["APISERVER"] || "localhost:8080"
-
 def kube_get(ns, *cmd)
-    JSON.load(`./kubectl -s #{apiserver} --namespace=#{ns} -o json get #{cmd.join(" ")}`)
+    JSON.load(`./kubectl -s #{$apiserver} --namespace=#{ns} -o json get #{cmd.join(" ")}`)
 end
 
 dnat_rules = [ ]
@@ -33,12 +33,14 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
     endpoints = kube_get(ns, "endpoints")["items"].group_by{|endpoint| endpoint.name}
 
     kube_get(ns, "service")["items"].each do |service|
-        # TODO we should avoid forwarding host services
+	# TODO we should avoid forwarding host services
         next if ns == "default" && (service.name == "kubernetes" || service.name == "kubernetes-ro")
 
-        $log.debug "  - s #{service["metadata"]["name"]}"
+        $log.debug "  - s #{service.name}"
         service_ip = service["spec"]["portalIP"]
-        $log.debug "    - service IP: #{service_ip}"
+      	$log.debug "    - service IP: #{service_ip}"
+        public_ips = service["spec"]["publicIPs"]
+        $log.debug "    - public IPs: #{public_ips.join ','}" unless public_ips.nil?
 
         target_ips = []
         endpoints[service.name].each do |endpoint|
@@ -49,6 +51,8 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
         target_ips.sort!
 
         dnat = "-A tsone-dnat -d #{service_ip}/32"
+	public_dnat = "-A tsone-dnat -d #{$public_ip}/32" if public_ips && (public_ips.include? $public_ip)
+
         comment = "service #{ns}/#{service.name}"
 
         service["spec"]["ports"].each do |port|
@@ -63,7 +67,8 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
             $log.debug "      - port: #{source_port} -> #{target_port}"
             target_ips.each_with_index do |target_ip, nth|
                 $log.debug "      - to: #{target_ip}"
-
+                $log.debug "      - to: #{target_ip} (Public IP)" if public_dnat
+	
                 rule_comment = "-m comment --comment \"#{comment}#{" #{port_name}" if port_name} (#{source_port} to #{target_ip}:#{target_port})\""
                 if nth == target_ips.size-1
                     # last rule should catch the remaining traffic
@@ -75,12 +80,13 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
                 end
 
                 port_dnat = \
-                    "#{dnat} #{source_port_match} #{rule_comment}" +
+                    "#{source_port_match} #{rule_comment}" +
                     every_nth +
                     " -j DNAT --to-destination #{target_ip}:#{target_port}"
 
-                dnat_rules << port_dnat
-
+                dnat_rules << "#{dnat} #{port_dnat}"
+                dnat_rules << "#{public_dnat} #{port_dnat}" if public_dnat
+                    
                 snat_rules << "-A tsone-snat -d #{target_ip}/32 -j MASQUERADE #{target_port_match} #{rule_comment}"
             end
         end
