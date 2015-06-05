@@ -24,6 +24,8 @@ end
 dnat_rules = [ ]
 snat_rules = [ ]
 
+prefix = 'tsone'
+
 $log.info "Loading cluster state..."
 kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each do |ns|
     $log.debug "ns #{ns}"
@@ -46,7 +48,7 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
         end
         target_ips.sort!
 
-        dnat = "-A my-dnat -d #{service_ip}/32"
+        dnat = "-A tsone-dnat -d #{service_ip}/32"
         comment = "service #{ns}/#{service.name}"
 
         service["spec"]["ports"].each do |port|
@@ -79,11 +81,11 @@ kube_get("default", "namespace")["items"].map{|ns|ns["metadata"]["name"]}.each d
 
                 dnat_rules << port_dnat
 
-                snat_rules << "-A my-snat -d #{target_ip}/32 -j MASQUERADE #{target_port_match} #{rule_comment}"
+                snat_rules << "-A tsone-snat -d #{target_ip}/32 -j MASQUERADE #{target_port_match} #{rule_comment}"
             end
         end
         # Also reject remaining traffic to the service IP
-        dnat = "-A my-dnat -d #{service_ip}/32 -j REJECT"
+        dnat = "-A tsone-dnat -d #{service_ip}/32 -j REJECT"
     end
 end
 
@@ -101,7 +103,7 @@ def sync_rules(chain, rules)
     end
 end
 
-sync_rules "my-dnat", dnat_rules
-sync_rules "my-snat", snat_rules
+sync_rules "tsone-dnat", dnat_rules
+sync_rules "tsone-snat", snat_rules
 
 $log.info "Finished."

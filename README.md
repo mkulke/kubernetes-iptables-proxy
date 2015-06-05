@@ -3,8 +3,8 @@ This is a quick-and-dirty implementation of the Kubernetes Proxy using iptables 
 
 Setup:
 
-    iptables -t nat -I PREROUTING  -j my-dnat
-    iptables -t nat -I OUTPUT      -j my-dnat
-    iptables -t nat -I POSTROUTING -j my-snat
-    /usr/bin/docker run --name kube-iptables-proxy --privileged --net=host mcluseau/kube-iptables-proxy:latest ./watch-apply
+    iptables -t nat -I PREROUTING  -j tsone-dnat
+    iptables -t nat -I OUTPUT      -j tsone-dnat
+    iptables -t nat -I POSTROUTING -j tsone-snat
+    /usr/bin/docker run --name kube-proxy-iptables --privileged --net=host quay.io/tsone/kube-proxy-iptables
 
