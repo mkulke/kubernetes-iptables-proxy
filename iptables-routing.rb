@@ -44,7 +44,8 @@ kube_get("default", "namespace")["items"].map{|ns|ns.name}.each do |ns|
 
         target_ips = []
         endpoints[service.name].each do |endpoint|
-            endpoint["subsets"].each do |subset|
+            subsets = endpoint["subsets"] || []
+            subsets.each do |subset|
                 target_ips += (subset["addresses"]||[]).map{|address| address["IP"]}
             end
         end
